@@ -14,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.dolphinscheduler.server.master.runner;
-
-import static org.apache.dolphinscheduler.common.Constants.DEPENDENT_SPLIT;
 
 import org.apache.dolphinscheduler.common.Constants;
 import org.apache.dolphinscheduler.common.enums.DependResult;
@@ -28,20 +25,15 @@ import org.apache.dolphinscheduler.common.thread.Stopper;
 import org.apache.dolphinscheduler.common.utils.DependentUtils;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.common.utils.LoggerUtils;
-import org.apache.dolphinscheduler.common.utils.NetUtils;
+import org.apache.dolphinscheduler.common.utils.OSUtils;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
-import org.apache.dolphinscheduler.server.utils.LogUtils;
 import org.apache.dolphinscheduler.server.utils.DependentExecute;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+import java.util.*;
+
+import static org.apache.dolphinscheduler.common.Constants.DEPENDENT_SPLIT;
 
 public class DependentTaskExecThread extends MasterBaseTaskExecThread {
 
@@ -62,7 +54,6 @@ public class DependentTaskExecThread extends MasterBaseTaskExecThread {
     /**
      * dependent date
      */
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone="GMT+8")
     private Date dependentDate;
 
     /**
@@ -72,8 +63,18 @@ public class DependentTaskExecThread extends MasterBaseTaskExecThread {
      */
     public DependentTaskExecThread(TaskInstance taskInstance) {
         super(taskInstance);
-        taskInstance.setStartTime(new Date());
     }
+
+    /*
+     * Maximum number of retries for database connection failure
+     * */
+
+    @Value("${maxdbconnretrytimes:360}")
+    private int maxDbConnRetrytimes;
+    /**
+     * Database connection times
+     */
+    private int connRetrytimes=0;
 
 
     @Override
@@ -162,8 +163,17 @@ public class DependentTaskExecThread extends MasterBaseTaskExecThread {
                     break;
                 }
                 // update process task
-                taskInstance = processService.findTaskInstanceById(taskInstance.getId());
-                processInstance = processService.findProcessInstanceById(processInstance.getId());
+                try {
+                    taskInstance = processService.findTaskInstanceById(taskInstance.getId());
+                    processInstance = processService.findProcessInstanceById(processInstance.getId());
+                } catch (Exception e) {
+                    connRetrytimes++;
+                    if (connRetrytimes>=maxDbConnRetrytimes){
+                        logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
+                        Stopper.stop();
+                    }
+                    e.printStackTrace();
+                }
                 Thread.sleep(Constants.SLEEP_TIME_MILLIS);
             } catch (Exception e) {
                 logger.error("exception",e);
@@ -184,9 +194,9 @@ public class DependentTaskExecThread extends MasterBaseTaskExecThread {
     }
 
     private void initTaskParameters() {
-        taskInstance.setLogPath(LogUtils.getTaskLogPath(taskInstance));
-        taskInstance.setHost(NetUtils.getHost() + Constants.COLON + masterConfig.getListenPort());
-        taskInstance.setState(ExecutionStatus.RUNNING_EXECUTION);
+        taskInstance.setLogPath(getTaskLogPath(taskInstance));
+        taskInstance.setHost(OSUtils.getHost() + Constants.COLON + masterConfig.getListenPort());
+        taskInstance.setState(ExecutionStatus.RUNNING_EXEUTION);
         taskInstance.setStartTime(new Date());
         processService.updateTaskInstance(taskInstance);
     }

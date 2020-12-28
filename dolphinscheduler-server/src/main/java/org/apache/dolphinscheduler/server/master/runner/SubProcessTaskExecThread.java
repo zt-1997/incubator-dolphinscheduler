@@ -21,13 +21,26 @@ import org.apache.dolphinscheduler.common.enums.ExecutionStatus;
 import org.apache.dolphinscheduler.common.thread.Stopper;
 import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Date;
+
 
 /**
  *  subflow task exec thread
  */
 public class SubProcessTaskExecThread extends MasterBaseTaskExecThread {
+
+    /*
+     * Maximum number of retries for database connection failure
+     * */
+
+    @Value("${maxdbconnretrytimes:360}")
+    private int maxDbConnRetrytimes;
+    /**
+     * Database connection times
+     */
+    private int connRetrytimes=0;
 
     /**
      * sub process instance
@@ -93,7 +106,7 @@ public class SubProcessTaskExecThread extends MasterBaseTaskExecThread {
             return false;
         }
 
-        taskInstance.setState(ExecutionStatus.RUNNING_EXECUTION);
+        taskInstance.setState(ExecutionStatus.RUNNING_EXEUTION);
         taskInstance.setStartTime(new Date());
         processService.updateTaskInstance(taskInstance);
         return true;
@@ -135,7 +148,17 @@ public class SubProcessTaskExecThread extends MasterBaseTaskExecThread {
                     continue;
                 }
             }
-            subProcessInstance = processService.findProcessInstanceById(subProcessInstance.getId());
+            try {
+                subProcessInstance = processService.findProcessInstanceById(subProcessInstance.getId());
+            } catch (Exception e) {
+                connRetrytimes++;
+
+                if (connRetrytimes>=maxDbConnRetrytimes){
+                    logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
+                    Stopper.stop();
+                }
+                e.printStackTrace();
+            }
             if (checkTaskTimeout()) {
                 this.checkTimeoutFlag = !alertTimeout();
                 handleTimeoutFailed();

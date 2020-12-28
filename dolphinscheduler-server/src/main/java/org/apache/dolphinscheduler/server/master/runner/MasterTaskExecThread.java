@@ -19,15 +19,9 @@ package org.apache.dolphinscheduler.server.master.runner;
 
 import org.apache.dolphinscheduler.common.Constants;
 import org.apache.dolphinscheduler.common.enums.ExecutionStatus;
-import org.apache.dolphinscheduler.common.enums.TaskTimeoutStrategy;
-import org.apache.dolphinscheduler.common.model.TaskNode;
-import org.apache.dolphinscheduler.common.task.TaskTimeoutParameter;
 import org.apache.dolphinscheduler.common.thread.Stopper;
 import org.apache.dolphinscheduler.common.utils.CollectionUtils;
-import org.apache.dolphinscheduler.common.utils.DateUtils;
-import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.common.utils.StringUtils;
-import org.apache.dolphinscheduler.dao.entity.ProcessDefinition;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
 import org.apache.dolphinscheduler.remote.command.TaskKillRequestCommand;
 import org.apache.dolphinscheduler.remote.utils.Host;
@@ -38,6 +32,7 @@ import org.apache.dolphinscheduler.server.master.dispatch.enums.ExecutorType;
 import org.apache.dolphinscheduler.server.master.dispatch.executor.NettyExecutorManager;
 import org.apache.dolphinscheduler.server.registry.ZookeeperRegistryCenter;
 import org.apache.dolphinscheduler.service.bean.SpringApplicationContext;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Date;
 import java.util.Set;
@@ -61,6 +56,18 @@ public class MasterTaskExecThread extends MasterBaseTaskExecThread {
      * zookeeper register center
      */
     private ZookeeperRegistryCenter zookeeperRegistryCenter;
+
+    /**
+     * Maximum number of retries for database connection failure
+     */
+
+    @Value("${maxdbconnretrytimes:360}")
+    private int maxDbConnRetrytimes;
+
+    /**
+     * Database connection times
+     */
+    private int connRetrytimes=0;
 
     /**
      * constructor of MasterTaskExecThread
@@ -145,8 +152,18 @@ public class MasterTaskExecThread extends MasterBaseTaskExecThread {
                     this.checkTimeoutFlag = !alertTimeout();
                 }
                 // updateProcessInstance task instance
-                taskInstance = processService.findTaskInstanceById(taskInstance.getId());
-                processInstance = processService.findProcessInstanceById(processInstance.getId());
+                try {
+                    taskInstance = processService.findTaskInstanceById(taskInstance.getId());
+                    processInstance = processService.findProcessInstanceById(processInstance.getId());
+                } catch (Exception e) {
+                    connRetrytimes++;
+
+                    if (connRetrytimes>=maxDbConnRetrytimes){
+                        logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
+                        Stopper.stop();
+                    }
+                    e.printStackTrace();
+                }
                 Thread.sleep(Constants.SLEEP_TIME_MILLIS);
             } catch (Exception e) {
                 logger.error("exception",e);
