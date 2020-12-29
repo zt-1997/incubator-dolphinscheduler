@@ -89,14 +89,13 @@ public class MasterSchedulerService extends Thread {
     /**
      * Maximum number of retries for database connection failure
      */
-    @Value("${maxDbConnRetrytimes:360}")
+    @Value("${maxdbconnretrytimes:360}")
     private int maxDbConnRetrytimes;
 
     /**
      * Database connection times
      */
     private int connRetrytimes=0;
-
 
     /**
      * constructor of MasterSchedulerService
@@ -136,69 +135,73 @@ public class MasterSchedulerService extends Thread {
     public void run() {
         logger.info("master scheduler started");
         while (Stopper.isRunning()){
+            InterProcessMutex mutex = null;
             try {
                 boolean runCheckFlag = OSUtils.checkResource(masterConfig.getMasterMaxCpuloadAvg(), masterConfig.getMasterReservedMemory());
-                if (!runCheckFlag) {
+                if(!runCheckFlag) {
                     Thread.sleep(Constants.SLEEP_TIME_MILLIS);
                     continue;
                 }
                 if (zkMasterClient.getZkClient().getState() == CuratorFrameworkState.STARTED) {
-                    scheduleProcess();
-                }
-            } catch (Exception e) {
-                logger.error("master scheduler thread error", e);
-            }
-        }
-    }
 
-    private void scheduleProcess() throws Exception {
-        InterProcessMutex mutex = null;
-        try {
-            mutex = zkMasterClient.blockAcquireMutex();
+                    mutex = zkMasterClient.blockAcquireMutex();
 
-            int activeCount = masterExecService.getActiveCount();
-            // make sure to scan and delete command  table in one transaction
-            Command command = null;
-            try {
-                command = processService.findOneCommand();
-                connRetrytimes=0;
-            } catch (Exception e) {
-                connRetrytimes++;
-                logger.info("Database connection retries : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
-                if (connRetrytimes>=maxDbConnRetrytimes){
-                    logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
-                    Stopper.stop();
-                }
-                e.printStackTrace();
-            }
-            if (command != null) {
-                logger.info("find one command: id: {}, type: {}", command.getId(),command.getCommandType());
-
-                try {
-
-                    ProcessInstance processInstance = processService.handleCommand(logger,
-                            getLocalAddress(),
-                            this.masterConfig.getMasterExecThreads() - activeCount, command);
-                    if (processInstance != null) {
-                        logger.info("start master exec thread , split DAG ...");
-                        masterExecService.execute(
-                                new MasterExecThread(
-                                        processInstance
-                                        , processService
-                                        , nettyRemotingClient
-                                        , alertManager
-                                        , masterConfig));
+                    int activeCount = masterExecService.getActiveCount();
+                    // make sure to scan and delete command  table in one transaction
+                    Command command = null;
+                    try {
+                        command = processService.findOneCommand();
+                        connRetrytimes=0;
+                    } catch (Exception e) {
+                        connRetrytimes++;
+                        logger.info("Database connection retries : connRetrytimes: {}", connRetrytimes);
+                        if (connRetrytimes>=maxDbConnRetrytimes){
+                            logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
+                            Stopper.stop();
+                        }
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    logger.error("scan command error ", e);
-                    processService.moveToErrorCommand(command, e.toString());
+                    if (command != null) {
+
+                        logger.info("find one command: id: {}, type: {}", command.getId(),command.getCommandType());
+
+                        try{
+
+                            ProcessInstance processInstance = processService.handleCommand(logger,
+                                    getLocalAddress(),
+                                    this.masterConfig.getMasterExecThreads() - activeCount, command);
+                            if (processInstance != null) {
+                                logger.info("start master exec thread , split DAG ...");
+                                masterExecService.execute(
+                                        new MasterExecThread(
+                                                processInstance
+                                                , processService
+                                                , nettyRemotingClient
+                                                , alertManager
+                                                , masterConfig));
+                                connRetrytimes=0;
+                            }
+                        }catch (Exception e){
+                            connRetrytimes++;
+                            logger.info("Database connection retries : connRetrytimes: {}", connRetrytimes);
+
+                            if (connRetrytimes>=maxDbConnRetrytimes){
+                                logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
+                                Stopper.stop();
+                            }
+                            logger.error("scan command error ", e);
+                            processService.moveToErrorCommand(command, e.toString());
+                        }
+                    } else{
+                        //indicate that no command ,sleep for 1s
+                        Thread.sleep(Constants.SLEEP_TIME_MILLIS);
+                    }
                 }
-            } else {
-                //indicate that no command ,sleep for 1s
-                Thread.sleep(Constants.SLEEP_TIME_MILLIS);
+            } catch (Exception e){
+                logger.error("master scheduler thread error",e);
+            } finally{
+                zkMasterClient.releaseMutex(mutex);
             }
-        } finally {
-            zkMasterClient.releaseMutex(mutex);
         }
     }
 
