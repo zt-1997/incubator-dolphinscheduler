@@ -93,7 +93,7 @@ public class MasterSchedulerService extends Thread {
     /**
      * Maximum number of retries for database connection failure
      */
-    @Value("${maxdbconnretrytimes:360}")
+    @Value("${maxdbconnretrytimes:-1}")
     private int maxDbConnRetrytimes;
 
     /**
@@ -169,7 +169,7 @@ public class MasterSchedulerService extends Thread {
             } catch (Exception e) {
                 connRetrytimes++;
                 logger.info("Database connection retries : connRetrytimes: {}", connRetrytimes);
-                if (connRetrytimes >= maxDbConnRetrytimes) {
+                if (maxDbConnRetrytimes != -1 && connRetrytimes >= maxDbConnRetrytimes) {
                     logger.error("Database connection failed more than the maximum number of times : maxdbconnretrytimes: {}", maxDbConnRetrytimes);
                     Stopper.stop();
                 }
