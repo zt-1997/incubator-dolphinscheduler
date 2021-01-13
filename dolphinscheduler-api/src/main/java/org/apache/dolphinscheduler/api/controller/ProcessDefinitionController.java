@@ -213,8 +213,6 @@ public class ProcessDefinitionController extends BaseController {
         Map<String, Object> result = processDefinitionService.updateProcessDefinition(loginUser, projectName, id, name,
             processDefinitionJson, description, locations, connects);
 
-        processDefinitionService.releaseProcessDefinition(loginUser, projectName, id, ReleaseState.ONLINE.ordinal());
-
         return returnDataList(result);
     }
 
