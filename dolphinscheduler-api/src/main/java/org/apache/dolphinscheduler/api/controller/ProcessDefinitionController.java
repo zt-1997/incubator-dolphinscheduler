@@ -14,61 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.dolphinscheduler.api.controller;
 
-import static org.apache.dolphinscheduler.api.enums.Status.BATCH_DELETE_PROCESS_DEFINE_BY_IDS_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.COPY_PROCESS_DEFINITION_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.CREATE_PROCESS_DEFINITION;
-import static org.apache.dolphinscheduler.api.enums.Status.DELETE_PROCESS_DEFINE_BY_ID_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.ENCAPSULATION_TREEVIEW_STRUCTURE_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.GET_TASKS_LIST_BY_PROCESS_DEFINITION_ID_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.QUERY_DATAIL_OF_PROCESS_DEFINITION_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.QUERY_PROCESS_DEFINITION_LIST;
-import static org.apache.dolphinscheduler.api.enums.Status.QUERY_PROCESS_DEFINITION_LIST_PAGING_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.RELEASE_PROCESS_DEFINITION_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.UPDATE_PROCESS_DEFINITION_ERROR;
-import static org.apache.dolphinscheduler.api.enums.Status.VERIFY_PROCESS_DEFINITION_NAME_UNIQUE_ERROR;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.dolphinscheduler.api.enums.Status;
 import org.apache.dolphinscheduler.api.exceptions.ApiException;
 import org.apache.dolphinscheduler.api.service.ProcessDefinitionService;
 import org.apache.dolphinscheduler.api.utils.Result;
 import org.apache.dolphinscheduler.common.Constants;
-import org.apache.dolphinscheduler.common.enums.ReleaseState;
 import org.apache.dolphinscheduler.common.utils.ParameterUtils;
 import org.apache.dolphinscheduler.common.utils.StringUtils;
 import org.apache.dolphinscheduler.dao.entity.User;
+import io.swagger.annotations.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import springfox.documentation.annotations.ApiIgnore;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletResponse;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiImplicitParam;
-import io.swagger.annotations.ApiImplicitParams;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import springfox.documentation.annotations.ApiIgnore;
+import static org.apache.dolphinscheduler.api.enums.Status.*;
 
 
 /**
@@ -115,12 +86,11 @@ public class ProcessDefinitionController extends BaseController {
                                           @RequestParam(value = "connects", required = true) String connects,
                                           @RequestParam(value = "description", required = false) String description) throws JsonProcessingException {
 
-        logger.info("login user {}, create  process definition, project name: {}, process definition name: {}, "
-                + "process_definition_json: {}, desc: {} locations:{}, connects:{}",
+        logger.info("login user {}, create  process definition, project name: {}, process definition name: {}, " +
+                "process_definition_json: {}, desc: {} locations:{}, connects:{}",
             loginUser.getUserName(), projectName, name, json, description, locations, connects);
         Map<String, Object> result = processDefinitionService.createProcessDefinition(loginUser, projectName, name, json,
             description, locations, connects);
-
         return returnDataList(result);
     }
 
@@ -132,7 +102,7 @@ public class ProcessDefinitionController extends BaseController {
      * @param processId   process definition id
      * @return copy result code
      */
-    @ApiOperation(value = "copyProcessDefinition", notes = "COPY_PROCESS_DEFINITION_NOTES")
+    @ApiOperation(value = "copyProcessDefinition", notes= "COPY_PROCESS_DEFINITION_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "processId", value = "PROCESS_DEFINITION_ID", required = true, dataType = "Int", example = "100")
     })
@@ -186,7 +156,7 @@ public class ProcessDefinitionController extends BaseController {
      * @return update result code
      */
 
-    @ApiOperation(value = "updateProcessDefinition", notes = "UPDATE_PROCESS_DEFINITION_NOTES")
+    @ApiOperation(value = "updateProcessDefinition", notes= "UPDATE_PROCESS_DEFINITION_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "name", value = "PROCESS_DEFINITION_NAME", required = true, type = "String"),
         @ApiImplicitParam(name = "id", value = "PROCESS_DEFINITION_ID", required = true, dataType = "Int", example = "100"),
@@ -207,14 +177,11 @@ public class ProcessDefinitionController extends BaseController {
                                           @RequestParam(value = "connects", required = false) String connects,
                                           @RequestParam(value = "description", required = false) String description) {
 
-        logger.info("login user {}, update process define, project name: {}, process define name: {}, "
-                + "process_definition_json: {}, desc: {}, locations:{}, connects:{}",
+        logger.info("login user {}, update process define, project name: {}, process define name: {}, " +
+                "process_definition_json: {}, desc: {}, locations:{}, connects:{}",
             loginUser.getUserName(), projectName, name, processDefinitionJson, description, locations, connects);
         Map<String, Object> result = processDefinitionService.updateProcessDefinition(loginUser, projectName, id, name,
             processDefinitionJson, description, locations, connects);
-
-        processDefinitionService.releaseProcessDefinition(loginUser, projectName, id, ReleaseState.ONLINE.ordinal());
-
         return returnDataList(result);
     }
 
@@ -228,7 +195,7 @@ public class ProcessDefinitionController extends BaseController {
      * @return release result code
      */
 
-    @ApiOperation(value = "releaseProcessDefinition", notes = "RELEASE_PROCESS_DEFINITION_NOTES")
+    @ApiOperation(value = "releaseProcessDefinition", notes= "RELEASE_PROCESS_DEFINITION_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "name", value = "PROCESS_DEFINITION_NAME", required = true, type = "String"),
         @ApiImplicitParam(name = "processId", value = "PROCESS_DEFINITION_ID", required = true, dataType = "Int", example = "100"),
@@ -256,7 +223,7 @@ public class ProcessDefinitionController extends BaseController {
      * @param processId   process definition id
      * @return process definition detail
      */
-    @ApiOperation(value = "queryProcessDefinitionById", notes = "QUERY_PROCESS_DEFINITION_BY_ID_NOTES")
+    @ApiOperation(value = "queryProcessDefinitionById", notes= "QUERY_PROCESS_DEFINITION_BY_ID_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "processId", value = "PROCESS_DEFINITION_ID", required = true, dataType = "Int", example = "100")
     })
@@ -304,7 +271,7 @@ public class ProcessDefinitionController extends BaseController {
      * @param userId      user id
      * @return process definition page
      */
-    @ApiOperation(value = "queryProcessDefinitionListPaging", notes = "QUERY_PROCESS_DEFINITION_LIST_PAGING_NOTES")
+    @ApiOperation(value = "queryProcessDefinitionListPaging", notes= "QUERY_PROCESS_DEFINITION_LIST_PAGING_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "pageNo", value = "PAGE_NO", required = true, dataType = "Int", example = "100"),
         @ApiImplicitParam(name = "searchVal", value = "SEARCH_VAL", required = false, type = "String"),
@@ -473,7 +440,7 @@ public class ProcessDefinitionController extends BaseController {
         }
 
         if (!deleteFailedIdList.isEmpty()) {
-            putMsg(result, BATCH_DELETE_PROCESS_DEFINE_BY_IDS_ERROR, String.join(",", deleteFailedIdList));
+            putMsg(result, Status.BATCH_DELETE_PROCESS_DEFINE_BY_IDS_ERROR, String.join(",", deleteFailedIdList));
         } else {
             putMsg(result, Status.SUCCESS);
         }
@@ -484,13 +451,13 @@ public class ProcessDefinitionController extends BaseController {
     /**
      * batch export process definition by ids
      *
-     * @param loginUser            login user
-     * @param projectName          project name
+     * @param loginUser           login user
+     * @param projectName         project name
      * @param processDefinitionIds process definition ids
-     * @param response             response
+     * @param response            response
      */
 
-    @ApiOperation(value = "batchExportProcessDefinitionByIds", notes = "BATCH_EXPORT_PROCESS_DEFINITION_BY_IDS_NOTES")
+    @ApiOperation(value = "batchExportProcessDefinitionByIds", notes= "BATCH_EXPORT_PROCESS_DEFINITION_BY_IDS_NOTES")
     @ApiImplicitParams({
         @ApiImplicitParam(name = "processDefinitionIds", value = "PROCESS_DEFINITION_ID", required = true, dataType = "String")
     })
