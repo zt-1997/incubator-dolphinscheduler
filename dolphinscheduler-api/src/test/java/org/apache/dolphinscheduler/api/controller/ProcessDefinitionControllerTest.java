@@ -149,19 +149,19 @@ public class ProcessDefinitionControllerTest {
                 description, locations, connects)).thenReturn(result);
 
         Result response = processDefinitionController.updateProcessDefinition(user, projectName, name,id, json,
-                locations, connects, description);
+                locations, connects, description,1);
         Assert.assertEquals(Status.SUCCESS.getCode(),response.getCode().intValue());
     }
 
     @Test
     public void testReleaseProcessDefinition() throws Exception {
-        String projectName = "test";
+        String projectName = "bug test";
         int id = 1;
         Map<String, Object> result = new HashMap<>(5);
         putMsg(result, Status.SUCCESS);
 
-        Mockito.when(processDefinitionService.releaseProcessDefinition(user, projectName,id,ReleaseState.OFFLINE.ordinal())).thenReturn(result);
-        Result response = processDefinitionController.releaseProcessDefinition(user, projectName,id,ReleaseState.OFFLINE.ordinal());
+        Mockito.when(processDefinitionService.releaseProcessDefinition(user, projectName,id,ReleaseState.ONLINE.ordinal())).thenReturn(result);
+        Result response = processDefinitionController.releaseProcessDefinition(user, projectName,id,ReleaseState.ONLINE.ordinal());
         Assert.assertEquals(Status.SUCCESS.getCode(),response.getCode().intValue());
     }
 

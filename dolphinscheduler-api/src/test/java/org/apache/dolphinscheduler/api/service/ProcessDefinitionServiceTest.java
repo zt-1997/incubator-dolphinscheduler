@@ -342,7 +342,7 @@ public class ProcessDefinitionServiceTest {
     @Test
     public void testReleaseProcessDefinition() {
 
-        String projectName = "project_test1";
+        String projectName = "bugtest";
         Mockito.when(projectMapper.queryByName(projectName)).thenReturn(getProject(projectName));
 
         Project project = getProject(projectName);

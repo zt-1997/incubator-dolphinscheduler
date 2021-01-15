@@ -216,6 +216,9 @@ public class ExecutorService extends BaseService{
 
 
         ProcessInstance processInstance = processService.findProcessInstanceDetailById(processInstanceId);
+
+
+
         if (processInstance == null) {
             putMsg(result, Status.PROCESS_INSTANCE_NOT_EXIST, processInstanceId);
             return result;
